@@ -1,11 +1,11 @@
-# CellRoute 🛜
+# CellRoute
 ### *Cellular-Aware Intelligent Routing for L4 Autonomous Vehicles*
 
 > **MAHE-Harman AI in Mobility Challenge 2026**
 
 ---
 
-## 🚗 What is CellRoute?
+## What is CellRoute?
 
 CellRoute is a **cellular-aware multi-objective routing engine** for L4 autonomous vehicles. It goes beyond traditional GPS navigation by incorporating **real-time 5G/4G network intelligence** directly into the route optimization heuristic.
 
@@ -13,7 +13,7 @@ Every route decision is evaluated across **16 connectivity features** — includ
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 | Feature | Description |
 |---|---|
@@ -29,7 +29,7 @@ Every route decision is evaluated across **16 connectivity features** — includ
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 cellroute/
@@ -58,7 +58,7 @@ cellroute/
 
 ---
 
-## 🚀 How to Run
+## How to Run
 
 See **[HOW_TO_RUN.md](HOW_TO_RUN.md)** for full setup.
 
@@ -82,7 +82,7 @@ Then open: **http://localhost:8000/l4**
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 | Endpoint | Description |
 |---|---|
@@ -95,7 +95,7 @@ Then open: **http://localhost:8000/l4**
 
 ---
 
-## 🗂️ Data Sources
+## Data Sources
 
 - **TRAI Open Data** — Cell tower locations (BLR)
 - **Ookla Speedtest** — Tile-level throughput scores
@@ -104,6 +104,4 @@ Then open: **http://localhost:8000/l4**
 
 ---
 
-## 👥 Team
-
-Built for the **MAHE-Harman AI in Mobility Challenge 2026**
+## Built for the **MAHE-Harman AI in Mobility Challenge 2026**
