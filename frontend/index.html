@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellRoute | Intelligent Connectivity</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-glass: rgba(15, 23, 42, 0.85);
+            --border-glass: rgba(255, 255, 255, 0.12);
+            --accent-brand: #3b82f6; 
+            --accent-glow: rgba(59, 130, 246, 0.5);
+            --accent-hover: #2563eb;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            
+            --signal-good: #10b981; /* Green */
+            --signal-fair: #f59e0b; /* Orange */
+            --signal-poor: #ef4444; /* Red */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Glassmorphic Panel */
+        #hud-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 380px;
+            height: calc(100vh - 40px);
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 24px;
+            padding-bottom: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow-y: overlay; /* Use overlay or auto for scrolling */
+        }
+        #hud-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        #hud-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        /* Header */
+        .brand-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .brand-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #0ea5e9, #3b82f6);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 22px;
+            color: white;
+            box-shadow: 0 0 20px var(--accent-glow);
+            flex-shrink: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+        .header-content h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            line-height: 1;
+        }
+        .brand-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Slider Section */
+        .slider-section {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border-glass);
+        }
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .alpha-value {
+            color: var(--accent-brand);
+            font-size: 16px;
+            font-weight: 700;
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(to right, #94a3b8, var(--accent-brand));
+            border-radius: 3px;
+            outline: none;
+            margin-bottom: 8px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Routes List */
+        .routes-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1;          /* grow to fill remaining HUD space */
+            min-height: 0;    /* critical: allows flex child to shrink below content size */
+            overflow: hidden;
+        }
+        .routes-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            flex-shrink: 0;
+        }
+        #routes-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+            padding-right: 4px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        #routes-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        #routes-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #routes-container::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+        }
+        #routes-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.4);
+        }
+
+        /* Route Card */
+        .route-card {
+            background: rgba(255, 255, 255, 0.05); /* Slightly lighter for visibility */
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: grayscale(100%) opacity(0.5); /* GREY MODE */
+        }
+        .route-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            filter: grayscale(50%) opacity(0.8);
+        }
+        .route-card.selected {
+            filter: none; /* HIGHLIGHTED MODE */
+            opacity: 1;
+            border-color: #facc15; /* Yellow/Gold border */
+            background: rgba(250, 204, 21, 0.1);
+            box-shadow: 0 0 25px rgba(250, 204, 21, 0.2);
+            transform: scale(1.02);
+            border-left: 4px solid #facc15; /* Matching user image highlight */
+        }
+        .route-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .route-title {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .route-score {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .route-card.selected .route-score {
+            color: #facc15 !important;
+        }
+        
+        /* Stats */
+        .route-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        .stat span {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Segment Strip */
+        .segment-strip-container {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            display: flex;
+            overflow: hidden;
+        }
+        .segment {
+            flex-grow: 1;
+            height: 100%;
+        }
+
+        /* Loading Overlay */
+        #loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            padding: 20px 40px;
+            border-radius: 30px;
+            color: white;
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        #loader.visible {
+            opacity: 1;
+        }
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s infinite linear;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        .last-mile-tooltip {
+            background: rgba(16, 185, 129, 0.2) !important;
+            backdrop-filter: blur(8px) !important;
+            border: 1px solid #10b981 !important;
+            border-radius: 4px !important;
+            color: #10b981 !important;
+            font-size: 11px !important;
+            padding: 4px 8px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+        }
+
+        /* Controls Panel */
+        .controls {
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            flex: 1;
+            padding: 8px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .btn-primary {
+            background: var(--accent-brand);
+            border-color: var(--accent-brand);
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        /* ── Closed-Loop Assurance UI ──────────────────────── */
+        #alarm-banner {
+            display: none;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.35));
+            border: 1px solid rgba(239, 68, 68, 0.6);
+            border-radius: 12px;
+            padding: 14px 16px;
+            animation: alarmPulse 2s ease-in-out infinite;
+        }
+        #alarm-banner.active {
+            display: block;
+        }
+        .alarm-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #fca5a5;
+            margin-bottom: 8px;
+        }
+        .alarm-dot {
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: blink 0.8s infinite alternate;
+        }
+        .alarm-body {
+            font-size: 12px;
+            color: #fecaca;
+            line-height: 1.5;
+        }
+        .alarm-body strong { color: #fff; }
+        @keyframes alarmPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+            50% { box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.3); }
+        }
+        @keyframes blink {
+            from { opacity: 1; }
+            to { opacity: 0.2; }
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #fca5a5;
+        }
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.35);
+        }
+        .btn-success {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: rgba(16, 185, 129, 0.5);
+            color: #6ee7b7;
+        }
+        .btn-success:hover {
+            background: rgba(16, 185, 129, 0.35);
+        }
+
+        @keyframes outageRipple {
+            0%   { transform: scale(1);   opacity: 0.35; }
+            100% { transform: scale(1.8); opacity: 0; }
+        }
+        /* ───────────────────────────────────────────────────── */
+        /* Pulsar Animation for Logo */
+        @keyframes pulsar {
+            0% { transform: scale(1); box-shadow: 0 0 15px var(--accent-glow); }
+            50% { transform: scale(1.05); box-shadow: 0 0 25px var(--accent-glow); }
+            100% { transform: scale(1); box-shadow: 0 0 15px var(--accent-glow); }
+        }
+        .brand-logo {
+            animation: pulsar 3s infinite ease-in-out;
+        }
+
+        /* Pitch Mode Highlight */
+        .pitch-mode-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #818cf8, #3b82f6);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+        .pitch-mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Time Selector Styling */
+        .time-selector-container {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-glass);
+        }
+        .time-select {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-top: 8px;
+            outline: none;
+        }
+        .time-select option {
+            background: #1e293b;
+        }
+
+        /* Origin / Destination Input */
+        .od-panel {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        .od-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .od-label .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .od-label .dot.origin { background: #10b981; }
+        .od-label .dot.dest   { background: #ef4444; }
+        .od-input {
+            width: 100%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            color: var(--text-main);
+            padding: 10px 12px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .od-input::placeholder { color: var(--text-muted); }
+        .od-input:focus { border-color: var(--accent-brand); }
+        .od-swap-row {
+            display: flex;
+            justify-content: center;
+            margin: 8px 0;
+        }
+        .od-swap-btn {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid var(--border-glass);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .od-swap-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        .btn-find-routes {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #0ea5e9, #3b82f6);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.35);
+        }
+        .btn-find-routes:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
+        }
+        .btn-find-routes:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .demo-route-link {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 10px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .demo-route-link:hover { color: var(--accent-brand); }
+
+        /* Right-Side Dashboard (Routes + Advanced) */
+        #right-hud {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 500px; /* Widened for side-by-side comparison */
+            max-height: calc(100vh - 40px);
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: -10px 0 50px rgba(0,0,0,0.5);
+            overflow-y: auto;
+        }
+        #right-hud::-webkit-scrollbar { width: 4px; }
+        #right-hud::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+        .adv-panel-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent-brand);
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Signal Legend Overlay */
+        #signal-legend {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            width: 200px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 12px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        .legend-sources {
+            margin-top: 4px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-glass);
+            font-size: 9px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div id="signal-legend">
+        <div class="adv-panel-title" style="font-size: 10px; margin-bottom: 5px;">Quality Indicators</div>
+        <div class="legend-item"><div class="legend-color" style="background: #10b981;"></div> Excellent Coverage</div>
+        <div class="legend-item"><div class="legend-color" style="background: #f59e0b;"></div> Marginal Signal</div>
+        <div class="legend-item"><div class="legend-color" style="background: #ef4444;"></div> Critical Dead Zone</div>
+        <div class="legend-sources">
+            <b>DATA SOURCES:</b><br>
+            OSM OpenCellID • Ookla Open Data<br>
+            OpenStreetMap Roads • OpenTrafficData
+        </div>
+    </div>
+    
+    <div id="loader">
+        <div class="spinner"></div>
+        <span>Calculating optimal paths...</span>
+    </div>
+
+    <div id="hud-container">
+        <div class="brand-header">
+            <div class="brand-logo">CR</div>
+            <div class="header-content">
+                <h1>CellRoute</h1>
+                <p class="brand-subtitle">Cellular-Aware Intelligence</p>
+                <div id="live-hardware-status" style="font-size: 10px; color: #10b981; margin-top: 6px; display: flex; align-items: center; gap: 5px; background: rgba(16, 185, 129, 0.1); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2); width: fit-content;">
+                    <span style="height: 6px; width: 6px; background: #10b981; border-radius: 50%; display: inline-block; animation: blink 1s infinite alternate;"></span>
+                    LIVE FEED: <span id="conn-type" style="font-weight: 700;">Detecting...</span> (<span id="conn-speed">--</span> Mbps)
+                </div>
+            </div>
+        </div>
+
+        <div class="slider-section">
+            <div class="slider-header">
+                <span>Routing Bias (λ)</span>
+                <span class="alpha-value" id="alpha-display">0.5</span>
+            </div>
+            <input type="range" id="alpha-slider" min="0" max="1" step="0.1" value="0.5">
+            <div class="slider-labels">
+                <span>FASTEST (ETA)</span>
+                <span>BALANCED</span>
+                <span>STRONGEST SIGNAL</span>
+            </div>
+        </div>
+
+        <!-- Origin / Destination Panel -->
+        <div class="od-panel">
+            <div class="od-label"><span class="dot origin"></span> ORIGIN</div>
+            <input id="input-origin" class="od-input" type="text" value="Marathahalli, Bangalore" />
+            <div class="od-swap-row">
+                <button class="od-swap-btn" id="btn-swap" title="Swap Origin & Destination">&#8597;</button>
+            </div>
+            <div class="od-label"><span class="dot dest"></span> DESTINATION</div>
+            <input id="input-dest" class="od-input" type="text" value="Malleswaram, Bangalore" />
+            <button class="btn-find-routes" id="btn-find-routes">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg>
+                Find Best Routes
+            </button>
+            <div class="demo-route-link" id="btn-demo">&#9654; Load Bangalore Demo Route</div>
+        </div>
+
+        <div class="slider-section">
+            <div class="slider-header" style="margin-bottom: 8px;">
+                <span>📡 Signal Heatmap</span>
+                <input type="checkbox" id="heatmap-toggle" style="width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;">
+            </div>
+            <div class="slider-header" style="margin-bottom: 0;">
+                <span>🌧 Monsoon Penalty (F14)</span>
+                <input type="checkbox" id="weather-toggle" style="width: 18px; height: 18px; cursor: pointer; accent-color: #3b82f6;">
+            </div>
+        </div>
+
+        <div id="alarm-banner">
+            <div class="alarm-header">
+                <div class="alarm-dot"></div>
+                <span>NETWORK ALARM — Tower KPI Degradation</span>
+            </div>
+            <div class="alarm-body" id="alarm-body-text">
+                <strong>Assurance Center</strong> detected throughput anomaly.<br>
+                Automated recovery initiated — re-routing vehicle...
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="btn-clear">Clear Map</button>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-danger" id="btn-outage">⚡ Simulate Outage</button>
+            <button class="btn btn-success" id="btn-recover" style="display:none;">✓ Recover</button>
+        </div>
+
+        <div class="time-selector-container">
+            <div class="slider-header">
+                <span>Simulated Network Time (IST)</span>
+            </div>
+            <select id="sim-time-select" class="time-select">
+                <option value="">Current (Live Factor)</option>
+                <option value="09:00">Morning Rush (09:00 AM) - 0.72x Penalty</option>
+                <option value="14:00">Lunch Hour (02:00 PM) - 0.88x Penalty</option>
+                <option value="19:00">Evening Rush (07:00 PM) - 0.68x Peak</option>
+                <option value="02:00">Night Flow (02:00 AM) - 1.15x Bonus</option>
+            </select>
+        </div>
+
+        <button id="pitch-mode-trigger" class="pitch-mode-btn">
+            🚀 START GUIDED PITCH
+        </button>
+    </div> <!-- END hud-container -->
+
+    <!-- Right-Side Dashboard -->
+    <div id="right-hud">
+        <div class="routes-section">
+            <div class="adv-panel-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                Optimal Trajectories
+            </div>
+            <div id="routes-container" style="margin-top: 15px;">
+                <div id="routes-placeholder" style="grid-column: span 2; font-size: 13px; color: var(--text-muted); text-align: center; padding: 40px 0; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;">
+                    Set your destination to analyze and<br>compare routes side-by-side...
+                </div>
+            </div>
+        </div>
+
+        <div style="height: 1px; background: var(--border-glass);"></div>
+
+        <div class="technical-brief">
+            <div class="adv-panel-title" style="color: #94a3b8; font-size: 11px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Technical Brief & Assumptions
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <a href="/docs/assumptions.md" target="_blank" class="btn" style="text-decoration: none; font-size: 10px; text-align: center; padding: 6px;">Heuristics Lib</a>
+                <a href="/docs/heuristics.md" target="_blank" class="btn" style="text-decoration: none; font-size: 10px; text-align: center; padding: 6px;">Data Sources</a>
+            </div>
+        </div>
+
+        <div style="height: 1px; background: var(--border-glass);"></div>
+
+        <div class="adv-panel-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            Advanced Options
+        </div>
+
+        <div class="slider-section" title="Prioritize 5G NR sites with localized User Plane Functions (UPF) to minimize CU/DU hop latency.">
+            <div class="slider-header" style="margin-bottom: 0;">
+                <span>5G Edge Optimized</span>
+                <input type="checkbox" id="edge-toggle" style="width: 18px; height: 18px; cursor: pointer; accent-color: #8b5cf6;">
+            </div>
+        </div>
+
+        <!-- ISP Selector -->
+        <div class="slider-section">
+            <div class="slider-header">
+                <span>User Service Provider (ISP)</span>
+            </div>
+            <select id="isp-select" style="width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px 12px; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; outline: none; cursor: pointer; appearance: auto;">
+                <option value="all">All Networks (Default)</option>
+                <option value="jio">Jio (Strong 5G Presence)</option>
+                <option value="airtel">Airtel</option>
+                <option value="vi">Vi (Vodafone Idea)</option>
+                <option value="bsnl">BSNL</option>
+            </select>
+        </div>
+
+        <div class="slider-section">
+            <div class="slider-header" style="margin-bottom: 8px;">
+                <span>5G Network Slice (URSP)</span>
+            </div>
+            <div class="slice-selector" id="slice-selector" style="display: flex; gap: 4px;">
+                <button class="btn btn-primary slice-btn active" data-slice="default" style="font-size: 11px; padding: 6px;">Default</button>
+                <button class="btn slice-btn" data-slice="embb" style="font-size: 11px; padding: 6px;">eMBB (OTA)</button>
+                <button class="btn slice-btn" data-slice="urllc" style="font-size: 11px; padding: 6px;">URLLC (V2X)</button>
+            </div>
+        </div>
+
+        </div>
+    </div> <!-- END right-hud -->
+
+    <!-- Guided Demo Message -->
+    <div id="demo-overlay" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); border: 1px solid var(--accent-brand); border-radius: 12px; padding: 15px 25px; color: white; z-index: 9999; box-shadow: 0 10px 40px rgba(0,0,0,0.5); font-family: 'Outfit'; font-size: 16px; min-width: 300px; text-align: center;">
+        <div id="demo-text">Initiating Walkthrough...</div>
+        <div style="margin-top: 10px; font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Guided Demo Autopilot</div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="components/SignalBadge.js"></script>
+    <script src="components/SegmentStrip.js"></script>
+    <script src="components/RouteCard.js"></script>
+    <script src="map.js"></script>
+    <script src="assurance.js"></script>
+    <script src="demo.js"></script>
+
+</body>
+</html>

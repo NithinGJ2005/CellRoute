@@ -1,0 +1,12 @@
+import geopandas as gpd
+df = gpd.read_parquet(r'd:\D\MAHE\cellroute\backend\data\scored_segments_blr.parquet')
+print(f"Segments: {len(df)}")
+print(f"Columns: {list(df.columns)}")
+print(f"conn_score stats:")
+print(df["conn_score"].describe())
+print(f"\nedge_score stats:")
+print(df["edge_score"].describe())
+print(f"\nSample u/v:")
+print(df[["u","v"]].head())
+print(f"\ntravel_time_s stats:")
+print(df["travel_time_s"].describe())

@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+httpx
+pydantic
+polyline
+haversine
+python-dotenv
+pandas
+geopandas
+osmnx
+scipy
+requests
+shapely
+pyarrow
+fastparquet
+networkx
